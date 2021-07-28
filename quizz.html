@@ -1,0 +1,207 @@
+<meta charset="UTF-8" />  
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+<link href="https://fonts.gstatic.com" rel="preconnect" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@300&display=swap" />
+<script crossorigin="anonymous" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script crossorigin="anonymous" src="https://kit.fontawesome.com/9f32cf0958.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<style>
+body{
+background:#2C302B;
+    color:#595959!important;
+    font-family: Arial, Helvetica, sans-serif;
+}
+main{
+  background: white;
+  border-radius: 25px;
+  padding:10px 25px;
+  margin: auto;
+}
+
+[type="checkbox"].correct
+{
+  box-shadow:0 0 5px green;
+  display: inline-block;
+  position:relative;
+  overflow: hidden;
+}
+[type="checkbox"].incorrect
+{
+  box-shadow:0 0 5px red;
+  display: inline-block;
+  position:relative;
+  overflow: hidden;
+}
+[type="checkbox"].correct::after
+{
+  content: 'O';
+  text-align: center;
+  color:white;
+  font-weight:bold;
+border-radius: 3px;
+position: absolute;
+background: green;
+width:100%;
+height: 100%;
+}
+[type="checkbox"].incorrect::after
+{
+  content: 'X';
+  text-align: center;
+  color:white;
+  font-weight:bold;
+border-radius: 3px;
+position: absolute;
+background: red;
+width:100%;
+height: 100%;
+}
+</style>              
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>            
+<link href="https://fonts.gstatic.com" rel="preconnect" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans&family=Nunito&display=swap" />            
+<script crossorigin="anonymous" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>        
+<script crossorigin="anonymous" src="https://kit.fontawesome.com/9f32cf0958.js"></script>       
+<title>Le Quizz</title>     
+<main>
+    <div id="app">
+                                             
+    </div>
+</main>               
+<script>
+
+let selectQuizz = {
+    props :{
+      categories : Array,
+    },
+    components :{}
+    ,
+    template : `<select id="myCategory" v-on:change="selectCategory">
+                  <option v-for='category in categories' :value="category.id">
+                    {{category.name}}
+                  </option>
+                </select>
+                `,
+    methods:{
+      selectCategory(event){
+        this.$parent.loadQuestions(event.target.value)
+      },
+    }
+}
+let theQuestion = {
+    props :{
+      question : Object,
+    },
+    components :{}
+    ,
+    template : `<div class="question">
+                  <h4>{{question.question}}</h4>
+                  <div :class="question.difficulty">{{question.difficulty}}</div>
+                  <div class="listAnswer">
+                    <div v-for='answer in question.incorrect_answers'>
+                      <input type="checkbox" :value="answer" @click="isSelect">
+                      <label>{{answer}}</label>
+                    </div>
+                  </div>
+                </div>
+                `,
+    methods:{
+      isSelect(event)
+      {
+
+        if(event.srcElement.parentNode.parentNode.classList.contains('checked'))
+        {
+          event.srcElement.checked = false
+          return
+        }
+        
+        if(event.target.value == this.question.correct_answer)
+        {
+          event.srcElement.classList.add('correct')
+          event.srcElement.parentNode.parentNode.classList.add('checked')
+          this.$parent.$parent.isRight()
+          return
+        }
+
+        event.srcElement.classList.add('incorrect')
+        for (let index = 0; index < event.path[2].childNodes.length; index++) {
+          if (event.path[2].childNodes[index].childNodes[0].value == this.question.correct_answer)
+              {
+                event.srcElement.parentNode.parentNode.childNodes[index].childNodes[0].classList.add('correct')
+                break
+              }
+        }
+        event.srcElement.parentNode.parentNode.classList.add('checked')
+      }
+    }
+}
+
+let listQuestions = {
+    props :{
+      questions : Array,
+    },
+    components :{theQuestion}
+    ,
+    template : `<div>
+                  <theQuestion v-for='question in questions' v-bind:question = question>
+                  </theQuestion>
+                </div>
+                `,
+    methods:{
+
+    }
+}
+
+let app = new Vue({
+    el: '#app',
+    components: {selectQuizz,listQuestions},
+    data :{
+        categories : null,
+        questions : null,
+        rightAnswer : 0,
+        numberQuestion : 0,
+      },
+      mounted () {
+        this.numberQuestion = 10
+        axios
+      .get('https://opentdb.com/api_category.php')
+      .then(response => this.categories = response.data.trivia_categories)
+    },
+    methods :{
+      loadQuestions : function(category){
+        this.reset()
+          axios
+        .get('https://opentdb.com/api.php?amount=10&category='+category)
+        .then(response => this.questions = response.data.results)
+      },
+      reset : function(){
+        this.questions = null
+      },
+      isRight : function(){
+        this.rightAnswer++;
+      }
+    },
+    watch:{
+      questions: function(){
+          if(this.questions != null)
+          {
+            this.questions.map(question => {
+              question.incorrect_answers.push(question.correct_answer)
+              question.incorrect_answers.sort(()=> Math.random() - 0.5)
+            })
+          }
+      },
+    },
+    template : `
+    <div>
+      <h1>Mon Quizz</h1>
+      <h2>Choissisez un sujet :</h2>
+        <selectQuizz v-bind:categories = categories></selectQuizz>
+        <button @click='reset'>Reset</button>
+      <h2>Score :</h2> {{ rightAnswer }} / {{ numberQuestion }}
+      <h2>Mes Questions :</h2>
+        <listQuestions v-bind:questions = questions></listQuestions>
+    </div>
+    `
+})
+</script>
